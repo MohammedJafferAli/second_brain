@@ -1,16 +1,15 @@
 #!/bin/bash
 
-cd <project_location> || exit
+cd /Users/mohammedjafferali.abubakkarsiddiq/Documents/myee-app || exit
 
 # Check if the correct number of arguments is provided
-if [ "$#" -lt 1 ]; then
-    echo "Usage: $0 <branch_name> [device_name]"
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <branch_name>"
     exit 1
 fi
 
 BRANCH_NAME=$1
-DEVICE_NAME=${2:-"iPhone 15 Pro"}  # Default to iPhone 15 Pro if not provided
-FLAVOR="appstore"
+FLAVOR="eesafe"
 
 # Fetch and checkout the branch
 git fetch origin "$BRANCH_NAME"
@@ -28,6 +27,7 @@ else
 fi
 
 # List available iOS simulators matching the device name
+DEVICE_NAME="iPhone 15 Pro"
 echo "Available iOS simulators matching: $DEVICE_NAME"
 xcrun simctl list devices available | grep -E "$DEVICE_NAME" | awk -F '[()]' '{print $2 " - " $1}'
 
@@ -36,28 +36,6 @@ SIMULATOR_ID=$(xcrun simctl list devices available | grep -E "$DEVICE_NAME" | aw
 
 if [ -z "$SIMULATOR_ID" ]; then
     echo "❌ No available iOS 17.5 simulators found."
-    exit 1
-fi
-
-# Boot the simulator if not already booted
-SIMULATOR_STATE=$(xcrun simctl list devices | grep "$SIMULATOR_ID" | awk '{print $NF}')
-if [ "$SIMULATOR_STATE" != "(Booted)" ]; then
-    echo "🔄 Booting simulator $SIMULATOR_ID..."
-    xcrun simctl boot "$SIMULATOR_ID"
-    sleep 10
-fi
-
-# Run the app on the selected simulator using flutter
-echo "🚀 Running app on simulator $SIMULATOR_ID..."
-flutter run --flavor "$FLAVOR" -d "$SIMULATOR_ID"# List available iOS simulators matching the device name
-echo "Available iOS simulators matching: $DEVICE_NAME"
-xcrun simctl list devices available | grep -E "$DEVICE_NAME" | awk -F '[()]' '{print $2 " - " $1}'
-
-# Select the first available simulator matching the device name
-SIMULATOR_ID=$(xcrun simctl list devices available | grep -E "$DEVICE_NAME" | awk -F '[()]' '{print $2}' | head -n 1)
-
-if [ -z "$SIMULATOR_ID" ]; then
-    echo "❌ No available iOS simulators found."
     exit 1
 fi
 
@@ -79,5 +57,28 @@ run_flutter_app() {
     flutter run --flavor "$FLAVOR" -d "$simulator_id" $additional_args
 }
 
-# Run the app on the selected simulator using flutter with additional arguments
-run_flutter_app "$SIMULATOR_ID" --dart-define=BUILD_TYPE=enterprise --dart-define=FLAVOR_NAME=Bf1 --dart-define=AUTH_CUSTOM_SCHEME=eeflutter --dart-define-from-file=assets/env_files_dev/env_bf1.json
+# Prompt user to select one of three predefined argument sets
+echo "Select the argument set to use:"
+echo "1) BF1"
+echo "2) BF2"
+echo "3) Prod"
+read -p "Enter the number of your choice: " ARG_CHOICE
+
+case $ARG_CHOICE in
+    bf1)
+        ARGS="--dart-define=BUILD_TYPE=enterprise --dart-define=FLAVOR_NAME=Bf1 --dart-define=AUTH_CUSTOM_SCHEME=eeflutter --dart-define-from-file=assets/env_files_dev/env_bf1.json"
+        ;;
+    bf2)
+        ARGS="--dart-define=BUILD_TYPE=enterprise --dart-define=FLAVOR_NAME=Bf2 --dart-define=AUTH_CUSTOM_SCHEME=eeflutter --dart-define-from-file=assets/env_files_dev/env_bf2.json"
+        ;;
+    prod)
+        ARGS="--dart-define=BUILD_TYPE=appstore --dart-define-from-file=assets/env_files_dev/env_prod_dev.json"
+        ;;
+    *)
+        echo "Invalid choice. Exiting."
+        exit 1
+        ;;
+esac
+
+# Run the Flutter app with the selected arguments
+run_flutter_app "$SIMULATOR_ID" $ARGS
